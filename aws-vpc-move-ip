@@ -159,8 +159,8 @@ ec2ip_monitor() {
 
 ec2ip_drop() {
 	debugger "ec2ip_drop: $DISASSOCIATE_CMD"
-	$IP addr delete "${OCF_RESKEY_address}/32" interface $OCF_RESKEY_interface
-	[[ $? != 0 ]] && debugger "- failed ip addr delete" && return $OCF_ERR_GENERIC
+	$IP addr delete "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface
+	[[ $? -gt 2 -o $? -eq 1 ]] && debugger "- failed ip addr delete" && return $OCF_ERR_GENERIC
 	debugger "- success"
 	return $OCF_SUCCESS
 }
@@ -169,7 +169,7 @@ ec2ip_get_and_configure() {
 	debugger "ec2ip_get_and_configure: $ASSOCIATE_CMD"
 	ec2-replace-route $OCF_RESKEY_routing_table -r "${OCF_RESKEY_address}/32" -i $EC2_INSTANCE_ID
 	[[ $? != 0 ]] && debugger "- failed ec2-replace-route, rc: $?" && return $OCF_ERR_GENERIC
-	$IP addr add "${OCF_RESKEY_address}/32" interface $OCF_RESKEY_interface
+	$IP addr add "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface
 	[[ $? != 0 ]] && debugger "- failed ip addr add ..., rc: $?" && return $OCF_ERR_GENERIC
 	debugger "-success"
 	return $OCF_SUCCESS
