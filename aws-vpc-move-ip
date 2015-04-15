@@ -96,12 +96,7 @@ END
 debug=1
 
 debugger() {
-	ocf_log info $1
-	# [[ $debug != 0 ]] && ocf_log info $1
-}
-
-ec2ip_metadata() {
-	EC2_INSTANCE_ID=$(ec2metadata --instance-id)
+	[[ $debug != 0 ]] && ocf_log info $1
 }
 
 ec2ip_validate() {
@@ -143,6 +138,8 @@ ec2ip_validate() {
 		debugger "found"
 	done
 	
+	EC2_INSTANCE_ID=$(ec2metadata --instance-id)
+			
 	# IP command
 	IP=$(which ip)
 	[[ -z $IP ]] && ocf_log error "ip command from iproute2 package not found!" && exit $OCF_ERR_CONFIGURED
@@ -150,7 +147,6 @@ ec2ip_validate() {
 
 ec2ip_monitor() {
 	debugger "monitor"
-	ec2ip_metadata
 	ping -c 1 $OCF_RESKEY_address > /dev/null
 	[[ $? -eq 0 ]]  && debugger "Running" && return $OCF_SUCCESS
 	debugger "Not running"
@@ -207,18 +203,19 @@ ec2ip_start() {
 #
 ###############################################################################
 
-ec2ip_validate
-
 echo "Action: $__OCF_ACTION" >>/tmp/action
 case $__OCF_ACTION in 
 	meta-data) metadata
 		   exit $OCF_SUCCESS;;
 	monitor)
+		ec2ip_validate
 		ec2ip_monitor;;
 	stop)
+		ec2ip_validate
 		ec2ip_stop;;
 	validate-all) ec2ip_validate;;
 	start)
+		ec2ip_validate
 		ec2ip_start;;
 	*)	exit $OCF_ERR_UNIMPLEMENTED;;
 eac
