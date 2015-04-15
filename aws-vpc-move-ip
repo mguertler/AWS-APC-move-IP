@@ -134,7 +134,7 @@ ec2ip_validate() {
 
 		for i in $EC2_COMMANDS ; do
 		debugger "- Locating command $i: "
-		[[ ! -x $(which $i) ]] && ocf_log error "ERROR: Command $i not found/exectuable; Have you set the ec2_home parameter?" && exit $OCF_ERR_INSTALLED
+		[[ ! -x $(which $i) ]] && ocf_log error "Command $i not found/exectuable; Have you set the ec2_home parameter?" && exit $OCF_ERR_INSTALLED
 		debugger "found"
 	done
 	
@@ -143,6 +143,8 @@ ec2ip_validate() {
 	# IP command
 	IP=$(which ip)
 	[[ -z $IP ]] && ocf_log error "ip command from iproute2 package not found!" && exit $OCF_ERR_CONFIGURED
+	
+	return $OCF_SUCCESS
 }
 
 ec2ip_monitor() {
@@ -190,10 +192,10 @@ ec2ip_start() {
 	[[ $? == $OCF_SUCCESS ]] && ocf_log info "EC2: $OCF_RESKEY_address already started" && return $OCF_SUCCESS
 	ocf_log info "EC2: Sending request to AWS"
 	ec2ip_get_and_configure 
-	[[ $? != 0 ]] && ocf_log error "ERROR: Received $? from 'aws'" && return $OCF_ERR_GENERIC
+	[[ $? != 0 ]] && ocf_log error "Received $? from 'aws'" && return $OCF_ERR_GENERIC
 	ec2ip_monitor
 	[[ $? == $OCF_SUCCESS ]] &&  return $?
-	ocf_log error "EC2: ERROR IP address couldn't be configured on this host (IP: $OCF_RESKEY_address, Interface: $OCF_RESKEY_interface)"
+	ocf_log error "EC2: IP address couldn't be configured on this host (IP: $OCF_RESKEY_address, Interface: $OCF_RESKEY_interface)"
 	return $OCF_ERR_GENERIC
 }
 
