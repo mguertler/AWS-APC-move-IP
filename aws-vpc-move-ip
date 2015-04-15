@@ -218,4 +218,4 @@ case $__OCF_ACTION in
 		ec2ip_validate
 		ec2ip_start;;
 	*)	exit $OCF_ERR_UNIMPLEMENTED;;
-eac
+esac
