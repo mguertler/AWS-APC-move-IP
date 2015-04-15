@@ -121,6 +121,7 @@ ec2ip_validate() {
 	fi
 	[[ -z "$OCF_RESKEY_java_home" ]] && ocf_log error "Paramter $OCF_RESKEY_JAVA_HOME not set and I wasn't able to determine it automatically!" && exit $OCF_ERR_CONFIGURED
 	[[ ! -x "${OCF_RESKEY_java_home}/bin/java" ]] && ocf_log error "Couldn't find java executable in ${OCF_RESKEY_java_home}/bin directory" && exit $OCF_ERR_CONFIGURED
+	export JAVA_HOME=$OCF_RESKEY_java_home
 
 	# EC2 Home
 	if [ -z "$OCF_RESKEY_ec2_home" ]; then
@@ -149,7 +150,7 @@ ec2ip_validate() {
 
 ec2ip_monitor() {
 	debugger "monitor"
-	ping -c 1 $OCF_RESKEY_address > /dev/null
+	ping -W 1 -c 1 $OCF_RESKEY_address > /dev/null
 	[[ $? -eq 0 ]]  && debugger "Running" && return $OCF_SUCCESS
 	debugger "Not running"
 	return $OCF_NOT_RUNNING	
@@ -190,7 +191,7 @@ ec2ip_start() {
 	ocf_log info "EC2: Moving IP address $OCF_RESKEY_address to this host by adjusting routing table $OCF_RESKEY_routing_table"
 	ec2ip_monitor
 	[[ $? == $OCF_SUCCESS ]] && ocf_log info "EC2: $OCF_RESKEY_address already started" && return $OCF_SUCCESS
-	ocf_log info "EC2: Sending request to AWS"
+	ocf_log info "EC2: Adjusting routing table and locally configuring IP address"
 	ec2ip_get_and_configure 
 	[[ $? != 0 ]] && ocf_log error "Received $? from 'aws'" && return $OCF_ERR_GENERIC
 	ec2ip_monitor
