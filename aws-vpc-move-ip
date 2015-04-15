@@ -203,7 +203,6 @@ ec2ip_start() {
 #
 ###############################################################################
 
-echo "Action: $__OCF_ACTION" >>/tmp/action
 case $__OCF_ACTION in 
 	meta-data) metadata
 		   exit $OCF_SUCCESS;;
