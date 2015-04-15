@@ -150,6 +150,7 @@ ec2ip_validate() {
 
 ec2ip_monitor() {
 	debugger "monitor"
+	ec2ip_validate
 	ping -W 1 -c 1 $OCF_RESKEY_address > /dev/null
 	[[ $? -eq 0 ]]  && debugger "Running" && return $OCF_SUCCESS
 	debugger "Not running"
@@ -161,7 +162,7 @@ ec2ip_drop() {
 	debugger "ec2ip_drop: $IP addr delete "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface"
 	$IP addr delete "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface
 	[[ $? -gt 2 ]] && debugger "- failed ip addr delete" && return $OCF_ERR_GENERIC
-	debugger "- success"
+	debugger "- succeeded ip addr delete"
 	return $OCF_SUCCESS
 }
 
@@ -176,19 +177,21 @@ ec2ip_get_and_configure() {
 }
 
 ec2ip_stop() {
-	ocf_log info "EC2: Bringing down IP address $OCF_RESKEY_address" 
+	ocf_log info "EC2: Bringing down IP address $OCF_RESKEY_address"
+	ec2ip_validate 
 	ec2ip_monitor
 	[[ $? == $OCF_NOT_RUNNING ]] && ocf_log info "EC2: Address $OCF_RESKEY_address already down" && return $OCF_SUCCESS
 	ec2ip_drop
-	[[ $? != $OCF_ERR_SUCCESS ]] && return $OCF_ERR_GENERIC
+	[[ $? != $OCF_SUCCESS ]] && return $OCF_ERR_GENERIC
 	ec2ip_monitor
-	[[ $? == $OCF_NOT_RUNNING ]] && ocf_log info "EC2: Successfully brought down $OCF_RESKEY_address" &&  return $OCF_SUCCESS
-	ocf_log error "EC2: ERROR Couldn't bring down IP address $OCF_RESKEY_address on interface $OCF_RESKEY_interface." 
+	[[ $? == $OCF_NOT_RUNNING ]] && ocf_log info "EC2: Successfully brought down $OCF_RESKEY_address" && return $OCF_SUCCESS
+	ocf_log error "EC2: Couldn't bring down IP address $OCF_RESKEY_address on interface $OCF_RESKEY_interface." 
 	return $OCF_ERR_GENERIC
 }
 
 ec2ip_start() {
 	ocf_log info "EC2: Moving IP address $OCF_RESKEY_address to this host by adjusting routing table $OCF_RESKEY_routing_table"
+	ec2ip_validate
 	ec2ip_monitor
 	[[ $? == $OCF_SUCCESS ]] && ocf_log info "EC2: $OCF_RESKEY_address already started" && return $OCF_SUCCESS
 	ocf_log info "EC2: Adjusting routing table and locally configuring IP address"
@@ -210,14 +213,11 @@ case $__OCF_ACTION in
 	meta-data) metadata
 		   exit $OCF_SUCCESS;;
 	monitor)
-		ec2ip_validate
 		ec2ip_monitor;;
 	stop)
-		ec2ip_validate
 		ec2ip_stop;;
 	validate-all) ec2ip_validate;;
 	start)
-		ec2ip_validate
 		ec2ip_start;;
 	*)	exit $OCF_ERR_UNIMPLEMENTED;;
 esac
