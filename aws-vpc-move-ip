@@ -132,7 +132,7 @@ ec2ip_validate() {
 	
 	EC2_COMMANDS="ec2-replace-route ec2metadata"
 
-		for i in $EC2_COMMANDS ; do
+	for i in $EC2_COMMANDS ; do
 		debugger "- Locating command $i: "
 		[[ ! -x $(which $i) ]] && ocf_log error "Command $i not found/exectuable; Have you set the ec2_home parameter?" && exit $OCF_ERR_INSTALLED
 		debugger "found"
@@ -142,7 +142,7 @@ ec2ip_validate() {
 			
 	# IP command
 	IP=$(which ip)
-	[[ -z $IP ]] && ocf_log error "ip command from iproute2 package not found!" && exit $OCF_ERR_CONFIGURED
+	[[ -z "$IP" ]] && ocf_log error "ip command from iproute2 package not found!" && exit $OCF_ERR_CONFIGURED
 	
 	return $OCF_SUCCESS
 }
