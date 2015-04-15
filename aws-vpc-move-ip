@@ -131,7 +131,7 @@ ec2ip_validate() {
 	export EC2_HOME=$OCF_RESKEY_ec2_home
 	export PATH="$PATH:$EC2_HOME/bin"
 	
-	EC2_COMMANDS="ec2-replace-route ec2metadata"
+	EC2_COMMANDS="ec2-replace-route ec2-describe-route-tables ec2metadata"
 
 	for i in $EC2_COMMANDS ; do
 		debugger "- Locating command $i: "
@@ -149,12 +149,15 @@ ec2ip_validate() {
 }
 
 ec2ip_monitor() {
-	debugger "monitor"
 	ec2ip_validate
+	debugger "monitor: check routing table"
+	ROUTE_TO_INSTANCE="$(ec2-describe-route-tables rtb-d29969be |grep "$OCF_RESKEY_address" | awk '{ print $2 }')"
+	[[ "$EC2_INSTANCE_ID" != "$ROUTE_TO_INSTANCE" ]] && debugger "- not routed to this instance ($EC2_INSTANCE_ID) but to $ROUTE_TO_INSTNANCE" && return $OCF_NOT_RUNNING 
+	debugger "monitor: ping ip"
 	ping -W 1 -c 1 $OCF_RESKEY_address > /dev/null
-	[[ $? -eq 0 ]]  && debugger "Running" && return $OCF_SUCCESS
-	debugger "Not running"
-	return $OCF_NOT_RUNNING	
+	[[ $? -gt 0 ]]  && debugger "- IP $OCF_RESKEY_address not locally reachable via ping on this system" && return $OCF_NOT_RUNNING
+	debugger "- routed in VPC and locally reachable"
+	return $OCF_SUCCESS	
 }
 
 
