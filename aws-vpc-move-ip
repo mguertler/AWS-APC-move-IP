@@ -30,7 +30,7 @@ metadata() {
 cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
-<resource-agent name="suse/aws-vpc-move-ip">
+<resource-agent name="aws-vpc-move-ip">
 <version>1.0</version>
 <longdesc lang="en">
 Resource Agent to move IP addresses within a VPC of the Amazon Webservices EC2
