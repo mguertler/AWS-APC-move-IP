@@ -160,7 +160,7 @@ ec2ip_monitor() {
 ec2ip_drop() {
 	debugger "ec2ip_drop: $DISASSOCIATE_CMD"
 	$IP addr delete "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface
-	[[ $? -gt 2 -o $? -eq 1 ]] && debugger "- failed ip addr delete" && return $OCF_ERR_GENERIC
+	[[ $? -gt 2 ]] || [[ $? -eq 1 ]] && debugger "- failed ip addr delete" && return $OCF_ERR_GENERIC
 	debugger "- success"
 	return $OCF_SUCCESS
 }
