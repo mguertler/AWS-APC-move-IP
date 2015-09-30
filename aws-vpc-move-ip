@@ -10,10 +10,20 @@
 OCF_ROOT=/usr/lib/ocf/
 #
 # INIT
-: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/resource.d/heartbeat}
-if [ -f ${OCF_FUNCTIONS_DIR}/.ocf-shellfuncs ]; then
-  . ${OCF_FUNCTIONS_DIR}/.ocf-shellfuncs
-fi
+#: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/resource.d/heartbeat}
+#if [ -f ${OCF_FUNCTIONS_DIR}/.ocf-shellfuncs ]; then
+#  . ${OCF_FUNCTIONS_DIR}/.ocf-shellfuncs
+#fi
+
+#######################################################################
+# Initialization:
+
+: ${OCF_FUNCTIONS=${OCF_ROOT}/resource.d/heartbeat/.ocf-shellfuncs}
+. ${OCF_FUNCTIONS}
+: ${__OCF_ACTION=$1}
+
+#######################################################################
+
  
 USAGE="usage: $0 {start|stop|status|meta-data}";
 ###############################################################################
@@ -31,38 +41,23 @@ cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
 <resource-agent name="aws-vpc-move-ip">
-<version>1.0</version>
+<version>2.0</version>
 <longdesc lang="en">
 Resource Agent to move IP addresses within a VPC of the Amazon Webservices EC2
 by changing an entry in an specific routing table
 </longdesc>
 <shortdesc lang="en">Move IP within a APC of the AWS EC2</shortdesc>
 <parameters>
-<parameter name="java_home" required="0">
-<longdesc lang="en">
-JAVA home directory; Agent tries to determine the java_home directory
-automatically
-</longdesc>
-<shortdesc lang="en">java home directory</shortdesc>
-<content type="string" default="" />
-</parameter>
-<parameter name="ec2_home" required="0">
-<longdesc lang="en">
-EC2 home directory
-</longdesc>
-<shortdesc lang="en">ec2 home directory</shortdesc>
-<content type="string" default="" />
-</parameter>
 <parameter name="address" required="1">
 <longdesc lang="en">
-VPC IP address
+VPC private IP address
 </longdesc>
 <shortdesc lang="en">vpc ip</shortdesc>
 <content type="string" default="" />
 </parameter>
 <parameter name="routing_table" required="1">
 <longdesc lang="en">
-Name of the routing table, where the route for the IP address should be changed
+Name of the routing table, where the route for the IP address should be changed, i.e. rtb-...
 </longdesc>
 <shortdesc lang="en">routing table name</shortdesc>
 <content type="string" default="" />
@@ -74,12 +69,12 @@ Name of the network interfacen, i.e. eth0
 <shortdesc lang="en">network interface name</shortdesc>
 <content type="string" default="eth0" />
 </parameter>
-<parameter name="credentials" required="0">
+<parameter name="profile" required="0">
 <longdesc lang="en">
-Location of file containing appropriate credentials.
+Valid AWS CLI profile name (see ~/.aws/config and 'aws configure')
 </longdesc>
-<shortdesc lang="en">credentials</shortdesc>
-<content type="string" default="/root/.cred.txt" /> 
+<shortdesc lang="en">profile name</shortdesc>
+<content type="string" default="default" /> 
 </parameter> 
 </parameters>
 <actions>
@@ -93,14 +88,12 @@ Location of file containing appropriate credentials.
 END
 }
 
-debug=1
-
 debugger() {
-	[[ $debug != 0 ]] && ocf_log info $1
+	ocf_log info "DEBUG: $1"
 }
 
 ec2ip_validate() {
-	debugger "validate"
+	debugger "function: validate"
 	
 	# IP address
 	[[ -z "$OCF_RESKEY_address" ]] && ocf_log error "IP address parameter not set $OCF_RESKEY_ADDRESS!" && exit $OCF_ERR_CONFIGURED
@@ -110,71 +103,71 @@ ec2ip_validate() {
 	
 	# Routing Table
 	[[ -z "$OCF_RESKEY_routing_table" ]] && ocf_log error "Routing table parameter not set $OCF_RESKEY_ROUTING_TABLE!" && exit $OCF_ERR_CONFIGURED
-
-	# Java Home
-	if [ -z "$OCF_RESKEY_java_home" ]; then
-	    java=`which java`
-	    while [ -L "$java" ]; do
-	        java=`/bin/ls -l $java | awk '{print $11}'`
-	    done
-	    export OCF_RESKEY_java_home=`dirname $java`/..
-	fi
-	[[ -z "$OCF_RESKEY_java_home" ]] && ocf_log error "Paramter $OCF_RESKEY_JAVA_HOME not set and I wasn't able to determine it automatically!" && exit $OCF_ERR_CONFIGURED
-	[[ ! -x "${OCF_RESKEY_java_home}/bin/java" ]] && ocf_log error "Couldn't find java executable in ${OCF_RESKEY_java_home}/bin directory" && exit $OCF_ERR_CONFIGURED
-	export JAVA_HOME=$OCF_RESKEY_java_home
-
-	# EC2 Home
-	if [ -z "$OCF_RESKEY_ec2_home" ]; then
-	    $OCF_RESKEY_ec2_home="$HOME/.ec2"
-	fi
 	
-	export EC2_HOME=$OCF_RESKEY_ec2_home
-	export PATH="$PATH:$EC2_HOME/bin"
+	COMMANDS="ec2metadata aws ip"
 	
-	EC2_COMMANDS="ec2-replace-route ec2-describe-route-tables ec2metadata"
-
-	for i in $EC2_COMMANDS ; do
-		debugger "- Locating command $i: "
-		[[ ! -x $(which $i) ]] && ocf_log error "Command $i not found/exectuable; Have you set the ec2_home parameter?" && exit $OCF_ERR_INSTALLED
-		debugger "found"
+	for i in $COMMANDS ; do
+		debugger "Locating command: $i"
+		[[ ! -x $(which $i) ]] && ocf_log error "Command $i not found or exectuable" && exit $OCF_ERR_INSTALLED
+		debugger "Command $i found"
 	done
 	
+	debugger "Testing aws command"
+	aws --version 2>&1
+	if [ "$?" -gt 0 ]; then
+		error "Error while executing aws command as user root! Please check if AWS CLI tools (Python flavor) are properly installed and configured." && exit $OCF_ERR_INSTALLED
+	fi
+	debugger "ok"
+		
 	EC2_INSTANCE_ID=$(ec2metadata --instance-id)
-			
-	# IP command
-	IP=$(which ip)
-	[[ -z "$IP" ]] && ocf_log error "ip command from iproute2 package not found!" && exit $OCF_ERR_CONFIGURED
 	
 	return $OCF_SUCCESS
 }
 
 ec2ip_monitor() {
 	ec2ip_validate
-	debugger "monitor: check routing table"
-	ROUTE_TO_INSTANCE="$(ec2-describe-route-tables rtb-d29969be |grep "$OCF_RESKEY_address" | awk '{ print $2 }')"
-	[[ "$EC2_INSTANCE_ID" != "$ROUTE_TO_INSTANCE" ]] && debugger "- not routed to this instance ($EC2_INSTANCE_ID) but to $ROUTE_TO_INSTNANCE" && return $OCF_NOT_RUNNING 
-	debugger "monitor: ping ip"
-	ping -W 1 -c 1 $OCF_RESKEY_address > /dev/null
-	[[ $? -gt 0 ]]  && debugger "- IP $OCF_RESKEY_address not locally reachable via ping on this system" && return $OCF_NOT_RUNNING
-	debugger "- routed in VPC and locally reachable"
+	debugger "function: ec2ip_monitor: check routing table"
+	cmd="aws ec2 describe-route-tables --route-table-ids $OCF_RESKEY_routing_table"
+	debugger "executing command: $cmd"
+	ROUTE_TO_INSTANCE="$($cmd |grep $OCF_RESKEY_address | awk '{ print $3 }')"
+	if [ -z "$ROUTE_TO_INSTANCE" ]; then 
+		ROUTE_TO_INSTANCE="<unknown>"
+	fi
+	
+	[[ "$EC2_INSTANCE_ID" != "$ROUTE_TO_INSTANCE" ]] && debugger "not routed to this instance ($EC2_INSTANCE_ID) but to instance $ROUTE_TO_INSTANCE" && return $OCF_NOT_RUNNING 
+	cmd="ping -W 1 -c 1 $OCF_RESKEY_address"
+	debugger "executing command: $cmd"
+	$cmd > /dev/null
+	[[ $? -gt 0 ]]  && debugger "IP $OCF_RESKEY_address not locally reachable via ping on this system" && return $OCF_NOT_RUNNING
+	debugger "routed in VPC and locally reachable"
 	return $OCF_SUCCESS	
 }
 
 
 ec2ip_drop() {
-	debugger "ec2ip_drop: $IP addr delete "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface"
-	$IP addr delete "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface
-	[[ $? -gt 2 ]] && debugger "- failed ip addr delete" && return $OCF_ERR_GENERIC
-	debugger "- succeeded ip addr delete"
+	debugger "function: ec2ip_drop"
+	cmd="ip addr delete ${OCF_RESKEY_address}/32 dev $OCF_RESKEY_interface"
+	debugger "executing command: $cmd"
+	$cmd
+	rc=$?
+	[[ $rc -gt 2 ]] && debugger "command failed, rc $rc" && return $OCF_ERR_GENERIC
+	debugger "command succeeded"
 	return $OCF_SUCCESS
 }
 
 ec2ip_get_and_configure() {
-	debugger "ec2ip_get_and_configure: $ASSOCIATE_CMD"
-	ec2-replace-route $OCF_RESKEY_routing_table -r "${OCF_RESKEY_address}/32" -i $EC2_INSTANCE_ID
-	[[ $? != 0 ]] && debugger "- failed ec2-replace-route, rc: $?" && return $OCF_ERR_GENERIC
-	$IP addr add "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface
-	[[ $? != 0 ]] && debugger "- failed ip addr add ..., rc: $?" && return $OCF_ERR_GENERIC
+	debugger "function: ec2ip_get_and_configure"
+	# Adjusting the routing table
+	cmd="aws ec2 replace-route --route-table-id $OCF_RESKEY_routing_table --destination-cidr-block ${OCF_RESKEY_address}/32 --instance-id $EC2_INSTANCE_ID"
+	debugger "executing command: $cmd"
+	$cmd
+	rc=$?
+	[[ $rc != 0 ]] && debugger "command failed, rc: $rc" && return $OCF_ERR_GENERIC
+	# Reconfigure the local ip address
+	ec2ip_drop
+	ip addr add "${OCF_RESKEY_address}/32" dev $OCF_RESKEY_interface
+	rc=$?
+	[[ $rc != 0 ]] && debugger "command failed, rc: $rc" && return $OCF_ERR_GENERIC
 	debugger "-success"
 	return $OCF_SUCCESS
 }
