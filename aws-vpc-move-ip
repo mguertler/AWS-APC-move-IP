@@ -121,13 +121,19 @@ ec2ip_validate() {
 		
 	EC2_INSTANCE_ID=$(ec2metadata --instance-id)
 	
+	if [ -n "$OCF_RESKEY_profile" ]; then
+		AWS_PROFILE_OPT="--profile $OCF_RESKEY_profile"
+	else
+		AWS_PROFILE_OPT="--profile default"
+	fi
+	
 	return $OCF_SUCCESS
 }
 
 ec2ip_monitor() {
 	ec2ip_validate
 	debugger "function: ec2ip_monitor: check routing table"
-	cmd="aws ec2 describe-route-tables --route-table-ids $OCF_RESKEY_routing_table"
+	cmd="aws $AWS_PROFILE_OPT ec2 describe-route-tables --route-table-ids $OCF_RESKEY_routing_table"
 	debugger "executing command: $cmd"
 	ROUTE_TO_INSTANCE="$($cmd |grep $OCF_RESKEY_address | awk '{ print $3 }')"
 	if [ -z "$ROUTE_TO_INSTANCE" ]; then 
@@ -158,7 +164,7 @@ ec2ip_drop() {
 ec2ip_get_and_configure() {
 	debugger "function: ec2ip_get_and_configure"
 	# Adjusting the routing table
-	cmd="aws ec2 replace-route --route-table-id $OCF_RESKEY_routing_table --destination-cidr-block ${OCF_RESKEY_address}/32 --instance-id $EC2_INSTANCE_ID"
+	cmd="aws $AWS_PROFILE_OPT ec2 replace-route --route-table-id $OCF_RESKEY_routing_table --destination-cidr-block ${OCF_RESKEY_address}/32 --instance-id $EC2_INSTANCE_ID"
 	debugger "executing command: $cmd"
 	$cmd
 	rc=$?
