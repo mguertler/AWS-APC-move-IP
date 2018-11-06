@@ -135,7 +135,7 @@ ec2ip_monitor() {
 	debugger "function: ec2ip_monitor: check routing table"
 	cmd="aws $AWS_PROFILE_OPT ec2 describe-route-tables --route-table-ids $OCF_RESKEY_routing_table"
 	debugger "executing command: $cmd"
-	ROUTE_TO_INSTANCE="$($cmd |grep $OCF_RESKEY_address | awk '{ print $3 }')"
+	ROUTE_TO_INSTANCE="$($cmd |grep -w $OCF_RESKEY_address | awk '{ print $3 }')"
 	if [ -z "$ROUTE_TO_INSTANCE" ]; then 
 		ROUTE_TO_INSTANCE="<unknown>"
 	fi
